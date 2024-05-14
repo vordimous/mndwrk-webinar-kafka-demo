@@ -45,6 +45,7 @@ curl --location 'http://localhost:8080/api/v1/sensor-data/<key>' \
 
 - see error:
 
+```
 org.agrona.concurrent.AgentTerminationException: java.lang.IllegalArgumentException: offset=75 length=1701016181 not valid for capacity=1073741824
     at io.aklivity.zilla.runtime.engine@0.9.79/io.aklivity.zilla.runtime.engine.internal.registry.EngineWorker.doWork(EngineWorker.java:823)
     at org.agrona.core/org.agrona.concurrent.AgentRunner.doDutyCycle(AgentRunner.java:291)
@@ -70,3 +71,4 @@ Caused by: java.lang.IllegalArgumentException: offset=75 length=1701016181 not v
     Suppressed: java.lang.Exception: [engine/data#1]        [0x010100000000003a] streams=[consumeAt=0x00005678 (0x0000000000005678), produceAt=0x00005778 (0x0000000000005778)]
             at io.aklivity.zilla.runtime.engine@0.9.79/io.aklivity.zilla.runtime.engine.internal.registry.EngineWorker.doWork(EngineWorker.java:821)
             ... 3 more
+```
