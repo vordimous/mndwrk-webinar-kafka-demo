@@ -1,19 +1,3 @@
-![cover](./src/main/resources/img/cover.jpg)
-# MNDWRK Kafka Webinar
-
-
-
-Welcome to the MNDWRK webinar demo repository! In this webinar, we'll explore the powerful Kafka ecosystem in conjunction with Spring Boot, showcasing how to build scalable, event-driven applications with ease.
-we'll demonstrate the integration of Kafka, a distributed streaming platform, with Spring Boot, a popular Java framework for building microservices. Through practical examples, we'll illustrate how Kafka facilitates real-time data processing and messaging within an application ecosystem.
-
-[`#kafka`](#) [`#kstreams`](#) [`#ksqldb`](#) [`#connect`](#) [`#schema-registry`](#) [`#zilla`](#)
-
-## Webinar links
-
- - [Apache Kafka Ecosystem](https://www.mndwrk.com/events/digitalk-webinar-apache-kafka-ecosystem)
-
-## Getting started
-
 #### Architecture
 
 ![architecture](./architecture/mndwrk-demo.drawio.png)
@@ -22,70 +6,67 @@ we'll demonstrate the integration of Kafka, a distributed streaming platform, wi
 
 ```sh
 docker-compose up -d
-
-docker exec -it  webinar-kafka-demo_broker_1 /bin/bash
-
-kafka-console-producer --topic webinar-demo-inbound --bootstrap-server localhost:9092
-```
-
-#### Payload
-
-```json
-{"source": "TLC", "description":"Green signal"}
-```
-
-```json
-{"source": "CCTV", "description":"People detected"}
-```
-
-```json
-{"source": "SENSOR", "description":"Something happend"}
-```
-
-```sh
-kafka-console-consumer --topic webinar-demo-outbound --bootstrap-server localhost:9092
-```
-
-#### Restart Broker
-
-```sh
-sudo docker-compose down -v && sudo docker-compose up -d
 ```
 
 #### Register Schema
+
 ```sh
-curl -X POST -H "Content-Type: application/vnd.schemaregistry.v1+avro" -d@schemas/avro/zilla-request.avsc http://localhost:8081/subjects/mndwrk-zilla-request-value/versions | jq
+jq '. | {schema: tojson}' schemas/avro/zilla-request.avsc  | \
+    curl -X POST http://localhost:8081/subjects/mndwrk-zilla-request-value/versions \
+         -H "Content-Type:application/json" \
+         -d @-
+jq '. | {schema: tojson}' schemas/avro/zilla-response.avsc  | \
+    curl -X POST http://localhost:8081/subjects/mndwrk-zilla-response-value/versions \
+         -H "Content-Type:application/json" \
+         -d @-
 ```
 
-#### ksqlDB
+#### Send data
+
 ```sh
-docker exec -it ksqldb-cli ksql http://ksqldb-server:8088
+curl --location 'http://localhost:8080/api/v1/sensor-data' \
+--header 'Content-Type: application/json' \
+--header 'Accept: application/json' \
+--data '{
+    "source": { "string": "TLC"},
+    "description": { "string": "Green Signal" }
+}'
 ```
 
-```sql
-SET 'auto.offset.reset' = 'earliest';
+- Get the message key from topic in [console ui](http://localhost:9000/redpanda/topics/mndwrk-zilla-request?p=-1&s=50&o=-1#messages).
+
+#### Get data
+
+```sh
+curl --location 'http://localhost:8080/api/v1/sensor-data/<key>' \
+--header 'Content-Type: application/json' \
+--header 'Accept: application/json' -v
 ```
 
-```sql
-REATE OR REPLACE STREAM MNDWRK_ZILLA_REQUEST(UUID VARCHAR KEY) WITH (KAFKA_TOPIC='mndwrk-zilla-request', KEY_FORMAT='KAFKA', PARTITIONS=1, VALUE_FORMAT='AVRO');
-```
+- see error:
 
-```sql
-SELECT `uuid`, `source`, `description`, TIMESTAMPTOSTRING(ROWTIME, 'yyyy-MM-dd HH:mm:ss.SSS') as `detectedAt` FROM MNDWRK_ZILLA_REQUEST EMIT CHANGES;
-```
-
-```sql
-CREATE OR REPLACE STREAM MNDWRK_ZILLA_RESPONSE(UUID VARCHAR KEY) WITH (KAFKA_TOPIC='mndwrk-zilla-response', KEY_FORMAT='KAFKA', PARTITIONS=1, VALUE_FORMAT='AVRO') AS SELECT UUID() as `uuid`, SOURCE as `source`, DESCRIPTION as `description`, TIMESTAMPTOSTRING(ROWTIME, 'yyyy-MM-dd HH:mm:ss.SSS') as `detectedAt` FROM MNDWRK_ZILLA_REQUEST EMIT CHANGES;
-```
-
-#### Other
-
-```sql
-DROP STREAM IF EXISTS <stream_name> DELETE TOPIC;
-DROP TABLE IF EXISTS <table_name> DELETE TOPIC;
-EXPLAIN | DESCRIBE;
-```
-
-##
-
-Project by Timot Tarjani [(@ttimot24)](https://github.com/ttimot24)
+org.agrona.concurrent.AgentTerminationException: java.lang.IllegalArgumentException: offset=75 length=1701016181 not valid for capacity=1073741824
+    at io.aklivity.zilla.runtime.engine@0.9.79/io.aklivity.zilla.runtime.engine.internal.registry.EngineWorker.doWork(EngineWorker.java:823)
+    at org.agrona.core/org.agrona.concurrent.AgentRunner.doDutyCycle(AgentRunner.java:291)
+    at org.agrona.core/org.agrona.concurrent.AgentRunner.run(AgentRunner.java:164)
+    at java.base/java.lang.Thread.run(Thread.java:1583)
+Caused by: java.lang.IllegalArgumentException: offset=75 length=1701016181 not valid for capacity=1073741824
+    at org.agrona.core/org.agrona.concurrent.UnsafeBuffer.boundsCheckWrap(UnsafeBuffer.java:1674)
+    at org.agrona.core/org.agrona.concurrent.UnsafeBuffer.wrap(UnsafeBuffer.java:246)
+    at io.aklivity.zilla.runtime.binding.kafka@0.9.79/io.aklivity.zilla.runtime.binding.kafka.internal.types.OctetsFW.wrap(OctetsFW.java:41)
+    at io.aklivity.zilla.runtime.binding.kafka@0.9.79/io.aklivity.zilla.runtime.binding.kafka.internal.types.cache.KafkaCachePaddedValueFW.wrap(KafkaCachePaddedValueFW.java:48)
+    at io.aklivity.zilla.runtime.binding.kafka@0.9.79/io.aklivity.zilla.runtime.binding.kafka.internal.cache.KafkaCacheFile.readBytes(KafkaCacheFile.java:142)
+    at io.aklivity.zilla.runtime.binding.kafka@0.9.79/io.aklivity.zilla.runtime.binding.kafka.internal.cache.KafkaCacheCursorFactory$KafkaCacheCursor.nextConvertedEntry(KafkaCacheCursorFactory.java:311)
+    at io.aklivity.zilla.runtime.binding.kafka@0.9.79/io.aklivity.zilla.runtime.binding.kafka.internal.cache.KafkaCacheCursorFactory$KafkaCacheCursor.next(KafkaCacheCursorFactory.java:227)
+    at io.aklivity.zilla.runtime.binding.kafka@0.9.79/io.aklivity.zilla.runtime.binding.kafka.internal.stream.KafkaCacheClientFetchFactory$KafkaCacheClientFetchStream.doClientReplyDataIfNecessary(KafkaCacheClientFetchFactory.java:1172)
+    at io.aklivity.zilla.runtime.binding.kafka@0.9.79/io.aklivity.zilla.runtime.binding.kafka.internal.stream.KafkaCacheClientFetchFactory$KafkaCacheClientFetchStream.onClientReplyWindow(KafkaCacheClientFetchFactory.java:1659)
+    at io.aklivity.zilla.runtime.binding.kafka@0.9.79/io.aklivity.zilla.runtime.binding.kafka.internal.stream.KafkaCacheClientFetchFactory$KafkaCacheClientFetchStream.onClientMessage(KafkaCacheClientFetchFactory.java:981)
+    at io.aklivity.zilla.runtime.binding.kafka@0.9.79/io.aklivity.zilla.runtime.binding.kafka.internal.stream.KafkaCacheClientFetchFactory.lambda$newStream$2(KafkaCacheClientFetchFactory.java:248)
+    at io.aklivity.zilla.runtime.engine@0.9.79/io.aklivity.zilla.runtime.engine.internal.registry.EngineWorker.handleReadReply(EngineWorker.java:1440)
+    at io.aklivity.zilla.runtime.engine@0.9.79/io.aklivity.zilla.runtime.engine.internal.registry.EngineWorker.handleRead(EngineWorker.java:1209)
+    at io.aklivity.zilla.runtime.engine@0.9.79/io.aklivity.zilla.runtime.engine.internal.concurent.ManyToOneRingBuffer.read(ManyToOneRingBuffer.java:181)
+    at io.aklivity.zilla.runtime.engine@0.9.79/io.aklivity.zilla.runtime.engine.internal.registry.EngineWorker.doWork(EngineWorker.java:817)
+    ... 3 more
+    Suppressed: java.lang.Exception: [engine/data#1]        [0x010100000000003a] streams=[consumeAt=0x00005678 (0x0000000000005678), produceAt=0x00005778 (0x0000000000005778)]
+            at io.aklivity.zilla.runtime.engine@0.9.79/io.aklivity.zilla.runtime.engine.internal.registry.EngineWorker.doWork(EngineWorker.java:821)
+            ... 3 more

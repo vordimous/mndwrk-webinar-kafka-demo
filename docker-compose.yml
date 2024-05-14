@@ -1,7 +1,4 @@
-version: '3'
-
 services:
-
   zookeeper:
     image: confluentinc/cp-zookeeper:7.2.2
     restart: always
@@ -30,7 +27,7 @@ services:
       - broker-data:/var/lib/kafka/data
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -55,7 +52,7 @@ services:
       - "8081:8081"
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
-      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'broker:29092'
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "broker:29092"
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
     deploy:
       resources:
@@ -82,9 +79,9 @@ services:
       OFFSET_STORAGE_TOPIC: _connect-offsets
       STATUS_STORAGE_TOPIC: _connect-status
       KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
-      KEY_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
+      KEY_CONVERTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
       VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
-      VALUE_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
+      VALUE_CONVERTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
       REST_ADVERTISED_HOST_NAME: "connect"
       LOG4J_APPENDER_STDOUT_LAYOUT_CONVERSIONPATTERN: "[%d] %p %X{connector.context}%m (%c:%L)%n"
       CONFIG_STORAGE_REPLICATION_FACTOR: "1"
@@ -136,7 +133,7 @@ services:
       KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE: "true"
       KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE: "true"
       KSQL_KSQL_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
-      KSQL_KSQL_CONNECT_URL: 'http://connect:8083'
+      KSQL_KSQL_CONNECT_URL: "http://connect:8083"
     deploy:
       resources:
         limits:
@@ -150,29 +147,41 @@ services:
     entrypoint: /bin/sh
     tty: true
 
+  kafka-init:
+    image: bitnami/kafka:3.5
+    command:
+      - "/bin/bash"
+      - "-c"
+      - |
+        /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server broker:29092 --create --if-not-exists --topic mndwrk-zilla-request
+        /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server broker:29092 --create --if-not-exists --topic mndwrk-zilla-response
+    depends_on:
+      - broker
+    init: true
+
   zilla:
-     image: ghcr.io/aklivity/zilla:0.9.79
-     container_name: zilla
-     command:  ["start", "-v", "-e"]
-     restart: always
-     depends_on:
-       - broker
-       - schema-registry 
-     ports:
-       - "8080:8080"
-       - "61616:61616"
-       - "7114:7114"
-       - "7190:7190"
-     environment:
-       KAFKA_BOOTSTRAP_SERVER: "broker:29092"
-       SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
-       ZILLA_INCUBATOR_ENABLED: true
-       KAFKA_HOST: "broker"
-       KAFKA_PORT: "29092"
-       API_URL: "http://localhost:8080"
-     volumes:
-       - ./zilla.yml:/etc/zilla/zilla.yaml
-     deploy:
+    image: ghcr.io/aklivity/zilla:0.9.79
+    container_name: zilla
+    command: ["start", "-v", "-e"]
+    restart: always
+    depends_on:
+      - broker
+      - schema-registry
+    ports:
+      - "8080:8080"
+      - "61616:61616"
+      - "7114:7114"
+      - "7190:7190"
+    environment:
+      KAFKA_BOOTSTRAP_SERVER: "broker:29092"
+      SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      ZILLA_INCUBATOR_ENABLED: true
+      KAFKA_HOST: "broker"
+      KAFKA_PORT: "29092"
+      API_URL: "http://localhost:8080"
+    volumes:
+      - ./zilla.yml:/etc/zilla/zilla.yaml
+    deploy:
       resources:
         limits:
           memory: 1.5G
@@ -182,7 +191,6 @@ volumes:
   zookeeper-log:
   broker-data:
   connect-data:
-
 
 networks:
   default:
